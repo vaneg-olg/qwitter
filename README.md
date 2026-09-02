@@ -199,3 +199,5 @@ Located in `src/components/FileUploadWidget.vue`, a reusable component for file 
 - Validation feedback
 - Image preview display
 - Event emissions for parent component integration
+
+to spill the beans
