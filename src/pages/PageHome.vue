@@ -17,12 +17,41 @@
                 <img src="https://s.gravatar.com/avatar/ce7f3697e231df38b3ca6065848520da?s=80">
               </q-avatar>
             </template>
+            <template v-slot:after>
+              <q-icon
+                name="attach_file"
+                @click="$refs.fileInput.click()"
+                class="cursor-pointer"
+              />
+              <input
+                ref="fileInput"
+                type="file"
+                style="display: none"
+                @change="onFileSelected"
+                accept="image/*,.pdf,.txt"
+              />
+            </template>
           </q-input>
+          <div v-if="uploadedFile" class="q-mt-md file-preview">
+            <q-chip
+              removable
+              @remove="uploadedFile = null"
+              color="primary"
+              text-color="white"
+              icon="attach_file"
+            >
+              {{ uploadedFile.name }} ({{ formatFileSize(uploadedFile.size) }})
+            </q-chip>
+            <div v-if="isImageFile(uploadedFile)" class="q-mt-sm">
+              <img :src="filePreviewURL" class="file-preview-image" />
+            </div>
+          </div>
         </div>
         <div class="col col-shrink">
           <q-btn
             @click="addNewQweet"
-            :disable="!newQweetContent"
+            :disable="!newQweetContent && !uploadedFile"
+            :loading="isUploading"
             class="q-mb-lg"
             color="primary"
             label="Qweet"
@@ -65,6 +94,17 @@
                 </span>
               </q-item-label>
               <q-item-label class="qweet-content text-body1">{{ qweet.content }}</q-item-label>
+              <div v-if="qweet.file" class="qweet-file q-mt-md">
+                <div v-if="isImageURL(qweet.file.url)" class="file-display-image">
+                  <img :src="qweet.file.url" />
+                </div>
+                <div v-else class="file-display-other">
+                  <q-icon name="description" size="lg" />
+                  <a :href="qweet.file.url" target="_blank" class="q-ml-sm">
+                    {{ qweet.file.filename }}
+                  </a>
+                </div>
+              </div>
               <div class="qweet-icons row justify-between q-mt-sm">
                 <q-btn
                   color="grey"
@@ -108,12 +148,16 @@
 <script>
 import db from 'src/boot/firebase'
 import { formatDistance } from 'date-fns'
+import { uploadFile, validateFile, formatFileSize } from 'src/services/fileUploadService'
 
 export default {
   name: 'PageHome',
   data() {
     return {
       newQweetContent: '',
+      uploadedFile: null,
+      filePreviewURL: null,
+      isUploading: false,
       qweets: [
         // {
         //   id: 'ID1',
@@ -131,19 +175,101 @@ export default {
     }
   },
   methods: {
-    addNewQweet() {
-      let newQweet = {
-        content: this.newQweetContent,
-        date: Date.now(),
-        liked: false
+    formatFileSize(bytes) {
+      return formatFileSize(bytes)
+    },
+    isImageFile(file) {
+      return file && file.type.startsWith('image/')
+    },
+    isImageURL(url) {
+      return url && (url.includes('image') || /\.(jpg|jpeg|png|gif)$/i.test(url))
+    },
+    onFileSelected(event) {
+      const file = event.target.files[0]
+      if (!file) return
+
+      // Validate the file
+      const validation = validateFile(file)
+      if (!validation.isValid) {
+        this.$q.notify({
+          type: 'negative',
+          message: validation.error,
+          position: 'top'
+        })
+        return
       }
-      // this.qweets.unshift(newQweet)
-      db.collection('qweets').add(newQweet).then(function(docRef) {
-        console.log('Document written with ID: ', docRef.id)
-      }).catch(function(error) {
-        console.error('Error adding document: ', error)
-      })
-      this.newQweetContent = ''
+
+      // Store the file
+      this.uploadedFile = file
+
+      // Create preview for images
+      if (this.isImageFile(file)) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          this.filePreviewURL = e.target.result
+        }
+        reader.readAsDataURL(file)
+      }
+
+      // Reset the input
+      this.$refs.fileInput.value = ''
+    },
+    async addNewQweet() {
+      // Check if there's content or a file
+      if (!this.newQweetContent && !this.uploadedFile) {
+        this.$q.notify({
+          type: 'warning',
+          message: 'Please enter some text or select a file',
+          position: 'top'
+        })
+        return
+      }
+
+      this.isUploading = true
+
+      try {
+        let newQweet = {
+          content: this.newQweetContent,
+          date: Date.now(),
+          liked: false
+        }
+
+        // Upload file if selected
+        if (this.uploadedFile) {
+          const uploadedFileData = await uploadFile(this.uploadedFile)
+          newQweet.file = {
+            url: uploadedFileData.url,
+            path: uploadedFileData.path,
+            filename: uploadedFileData.filename,
+            size: uploadedFileData.size,
+            type: uploadedFileData.type
+          }
+        }
+
+        // Save to Firestore
+        await db.collection('qweets').add(newQweet)
+        console.log('Qweet created successfully')
+
+        // Reset form
+        this.newQweetContent = ''
+        this.uploadedFile = null
+        this.filePreviewURL = null
+
+        this.$q.notify({
+          type: 'positive',
+          message: 'Qweet posted successfully!',
+          position: 'top'
+        })
+      } catch (error) {
+        console.error('Error creating qweet:', error)
+        this.$q.notify({
+          type: 'negative',
+          message: 'Error posting qweet. Please try again.',
+          position: 'top'
+        })
+      } finally {
+        this.isUploading = false
+      }
     },
     deleteQweet(qweet) {
       db.collection('qweets').doc(qweet.id).delete().then(function() {
@@ -210,4 +336,33 @@ export default {
   white-space: pre-line
 .qweet-icons
   margin-left: -5px
+.file-preview
+  padding: 12px
+  border: 1px solid #e0e0e0
+  border-radius: 4px
+  background-color: #fafafa
+.file-preview-image
+  max-width: 100%
+  max-height: 300px
+  border-radius: 4px
+  margin-top: 8px
+.qweet-file
+  padding: 12px
+  border: 1px solid #e0e0e0
+  border-radius: 4px
+  background-color: #f5f5f5
+.file-display-image
+  img
+    max-width: 100%
+    max-height: 400px
+    border-radius: 4px
+.file-display-other
+  display: flex
+  align-items: center
+  color: #666
+  a
+    color: #1976d2
+    text-decoration: none
+    &:hover
+      text-decoration: underline
 </style>
