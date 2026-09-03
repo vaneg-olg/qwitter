@@ -89,6 +89,14 @@
                   round
                 />
                 <q-btn
+                  @click="toggleDisliked(qweet)"
+                  :color="qweet.disliked ? 'red' : 'grey'"
+                  :icon="qweet.disliked ? 'fas fa-thumbs-down' : 'far fa-thumbs-down'"
+                  size="sm"
+                  flat
+                  round
+                />
+                <q-btn
                   @click="deleteQweet(qweet)"
                   color="grey"
                   icon="fas fa-trash"
@@ -119,13 +127,15 @@ export default {
         //   id: 'ID1',
         //   content: 'Be your own hero, its cheaper than a movie ticket.',
         //   date: 1611653238221,
-        //   liked: false
+        //   liked: false,
+        //   disliked: false
         // },
         // {
         //   id: 'ID2',
         //   content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat justo id viverra consequat. Integer feugiat lorem faucibus est ornare scelerisque. Donec tempus, nunc vitae semper sagittis, odio magna semper ipsum, et laoreet sapien mauris vitae arcu.',
         //   date: 1611653252444,
-        //   liked: true
+        //   liked: true,
+        //   disliked: false
         // },
       ]
     }
@@ -135,7 +145,8 @@ export default {
       let newQweet = {
         content: this.newQweetContent,
         date: Date.now(),
-        liked: false
+        liked: false,
+        disliked: false
       }
       // this.qweets.unshift(newQweet)
       db.collection('qweets').add(newQweet).then(function(docRef) {
@@ -163,6 +174,18 @@ export default {
         // The document probably doesn't exist.
         console.error('Error updating document: ', error)
       })
+    },
+    toggleDisliked(qweet) {
+      db.collection('qweets').doc(qweet.id).update({
+        disliked: !qweet.disliked
+      })
+      .then(function() {
+        console.log('Document successfully updated!')
+      })
+      .catch(function(error) {
+        // The document probably doesn't exist.
+        console.error('Error updating document: ', error)
+      })
     }
   },
   filters: {
@@ -175,6 +198,10 @@ export default {
       snapshot.docChanges().forEach(change => {
         let qweetChange = change.doc.data()
         qweetChange.id = change.doc.id
+        // Ensure disliked property exists for backward compatibility
+        if (qweetChange.disliked === undefined) {
+          qweetChange.disliked = false
+        }
         if (change.type === 'added') {
           console.log('New qweet: ', qweetChange)
           this.qweets.unshift(qweetChange)
