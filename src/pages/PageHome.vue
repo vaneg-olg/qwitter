@@ -89,6 +89,14 @@
                   round
                 />
                 <q-btn
+                  @click="toggleBookmarked(qweet)"
+                  :color="qweet.bookmarked ? 'blue' : 'grey'"
+                  :icon="qweet.bookmarked ? 'fas fa-bookmark' : 'far fa-bookmark'"
+                  size="sm"
+                  flat
+                  round
+                />
+                <q-btn
                   @click="deleteQweet(qweet)"
                   color="grey"
                   icon="fas fa-trash"
@@ -135,7 +143,8 @@ export default {
       let newQweet = {
         content: this.newQweetContent,
         date: Date.now(),
-        liked: false
+        liked: false,
+        bookmarked: false
       }
       // this.qweets.unshift(newQweet)
       db.collection('qweets').add(newQweet).then(function(docRef) {
@@ -155,6 +164,18 @@ export default {
     toggleLiked(qweet) {
       db.collection('qweets').doc(qweet.id).update({
         liked: !qweet.liked
+      })
+      .then(function() {
+        console.log('Document successfully updated!')
+      })
+      .catch(function(error) {
+        // The document probably doesn't exist.
+        console.error('Error updating document: ', error)
+      })
+    },
+    toggleBookmarked(qweet) {
+      db.collection('qweets').doc(qweet.id).update({
+        bookmarked: !qweet.bookmarked
       })
       .then(function() {
         console.log('Document successfully updated!')
