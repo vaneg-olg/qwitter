@@ -89,6 +89,14 @@
                   round
                 />
                 <q-btn
+                  @click="openDislikeDialog(qweet)"
+                  :color="hasDislike(qweet) ? 'negative' : 'grey'"
+                  :icon="hasDislike(qweet) ? 'fas fa-thumbs-down' : 'far fa-thumbs-down'"
+                  size="sm"
+                  flat
+                  round
+                />
+                <q-btn
                   @click="deleteQweet(qweet)"
                   color="grey"
                   icon="fas fa-trash"
@@ -102,6 +110,41 @@
         </transition-group>
       </q-list>
     </q-scroll-area>
+
+    <!-- Dislike Dialog -->
+    <q-dialog v-model="dislikeDialogOpen" @hide="resetDislikeForm">
+      <q-card style="min-width: 300px; max-width: 500px;">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Explain Your Dislike</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section>
+          <q-input
+            v-model="dislikeReason"
+            type="textarea"
+            label="Why do you dislike this post?"
+            outlined
+            maxlength="280"
+            counter
+            autogrow
+            @keyup.enter="submitDislike"
+          />
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="primary" v-close-popup />
+          <q-btn
+            flat
+            label="Submit"
+            color="negative"
+            @click="submitDislike"
+            :disable="!dislikeReason.trim()"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -114,20 +157,10 @@ export default {
   data() {
     return {
       newQweetContent: '',
-      qweets: [
-        // {
-        //   id: 'ID1',
-        //   content: 'Be your own hero, its cheaper than a movie ticket.',
-        //   date: 1611653238221,
-        //   liked: false
-        // },
-        // {
-        //   id: 'ID2',
-        //   content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat justo id viverra consequat. Integer feugiat lorem faucibus est ornare scelerisque. Donec tempus, nunc vitae semper sagittis, odio magna semper ipsum, et laoreet sapien mauris vitae arcu.',
-        //   date: 1611653252444,
-        //   liked: true
-        // },
-      ]
+      qweets: [],
+      dislikeDialogOpen: false,
+      dislikeReason: '',
+      currentQweetForDislike: null
     }
   },
   methods: {
@@ -135,7 +168,8 @@ export default {
       let newQweet = {
         content: this.newQweetContent,
         date: Date.now(),
-        liked: false
+        liked: false,
+        dislikes: []
       }
       // this.qweets.unshift(newQweet)
       db.collection('qweets').add(newQweet).then(function(docRef) {
@@ -163,6 +197,42 @@ export default {
         // The document probably doesn't exist.
         console.error('Error updating document: ', error)
       })
+    },
+    openDislikeDialog(qweet) {
+      this.currentQweetForDislike = qweet
+      this.dislikeDialogOpen = true
+    },
+    submitDislike() {
+      if (!this.dislikeReason.trim()) {
+        return
+      }
+
+      const dislikeObject = {
+        reason: this.dislikeReason.trim(),
+        timestamp: Date.now()
+      }
+
+      const dislikes = this.currentQweetForDislike.dislikes || []
+      const newDislikes = [...dislikes, dislikeObject]
+
+      db.collection('qweets').doc(this.currentQweetForDislike.id).update({
+        dislikes: newDislikes
+      })
+      .then(function() {
+        console.log('Dislike added successfully!')
+      })
+      .catch(function(error) {
+        console.error('Error adding dislike: ', error)
+      })
+
+      this.dislikeDialogOpen = false
+    },
+    resetDislikeForm() {
+      this.dislikeReason = ''
+      this.currentQweetForDislike = null
+    },
+    hasDislike(qweet) {
+      return qweet.dislikes && qweet.dislikes.length > 0
     }
   },
   filters: {
