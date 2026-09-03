@@ -127,13 +127,15 @@ export default {
         //   id: 'ID1',
         //   content: 'Be your own hero, its cheaper than a movie ticket.',
         //   date: 1611653238221,
-        //   liked: false
+        //   liked: false,
+        //   bookmarked: false
         // },
         // {
         //   id: 'ID2',
         //   content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat justo id viverra consequat. Integer feugiat lorem faucibus est ornare scelerisque. Donec tempus, nunc vitae semper sagittis, odio magna semper ipsum, et laoreet sapien mauris vitae arcu.',
         //   date: 1611653252444,
-        //   liked: true
+        //   liked: true,
+        //   bookmarked: false
         // },
       ]
     }
@@ -174,8 +176,10 @@ export default {
       })
     },
     toggleBookmarked(qweet) {
+      // Ensure bookmarked property exists, defaulting to false
+      const isCurrentlyBookmarked = qweet.bookmarked === true
       db.collection('qweets').doc(qweet.id).update({
-        bookmarked: !qweet.bookmarked
+        bookmarked: !isCurrentlyBookmarked
       })
       .then(function() {
         console.log('Document successfully updated!')
@@ -196,6 +200,14 @@ export default {
       snapshot.docChanges().forEach(change => {
         let qweetChange = change.doc.data()
         qweetChange.id = change.doc.id
+        // Ensure bookmarked property exists for all qweets
+        if (typeof qweetChange.bookmarked === 'undefined') {
+          qweetChange.bookmarked = false
+        }
+        // Ensure liked property exists for all qweets
+        if (typeof qweetChange.liked === 'undefined') {
+          qweetChange.liked = false
+        }
         if (change.type === 'added') {
           console.log('New qweet: ', qweetChange)
           this.qweets.unshift(qweetChange)
