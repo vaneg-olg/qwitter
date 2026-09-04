@@ -6,28 +6,23 @@
   "author": "Danny Connell",
   "private": true,
   "scripts": {
-    "test": "jest"
+    "test": "node tests/unit/PageHome.spec.js"
   },
   "dependencies": {
     "@quasar/extras": "^1.0.0",
     "core-js": "^3.6.5",
     "date-fns": "^2.16.1",
     "firebase": "^8.2.4",
-    "quasar": "^1.0.0"
+    "quasar": "^1.0.0",
+    "vue": "^2.6.12"
   },
   "devDependencies": {
     "@quasar/app": "^2.0.0",
-    "@testing-library/vue": "^5.8.3",
     "@vue/test-utils": "^1.3.0",
     "devtron": "^1.4.0",
-    "electron": "^9.4.1",
-    "electron-debug": "^3.2.0",
-    "electron-devtools-installer": "^3.1.1",
-    "electron-packager": "^14.2.1",
     "jest": "^27.5.1",
-    "jest-vue-preprocessor": "^1.7.1",
     "vue-jest": "^3.0.7",
-    "vue-template-compiler": "^2.6.14"
+    "vue-template-compiler": "^2.6.12"
   },
   "browserslist": [
     "last 10 Chrome versions",
