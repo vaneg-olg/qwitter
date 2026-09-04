@@ -89,6 +89,14 @@
                   round
                 />
                 <q-btn
+                  @click="toggleDisliked(qweet)"
+                  :color="qweet.disliked ? 'yellow' : 'grey'"
+                  icon="fas fa-thumbs-down"
+                  size="sm"
+                  flat
+                  round
+                />
+                <q-btn
                   @click="deleteQweet(qweet)"
                   color="grey"
                   icon="fas fa-trash"
@@ -102,6 +110,36 @@
         </transition-group>
       </q-list>
     </q-scroll-area>
+
+    <q-dialog v-model="showDislikeReasonDialog" @hide="resetDislikeDialog">
+      <q-card style="min-width: 300px">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Why are you disliking this?</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section>
+          <q-input
+            v-model="dislikeReason"
+            label="Enter your reason"
+            outlined
+            autofocus
+          />
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="primary" v-close-popup />
+          <q-btn
+            flat
+            label="Dislike"
+            color="yellow"
+            @click="submitDislike"
+            :disable="!dislikeReason.trim()"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -119,15 +157,22 @@ export default {
         //   id: 'ID1',
         //   content: 'Be your own hero, its cheaper than a movie ticket.',
         //   date: 1611653238221,
-        //   liked: false
+        //   liked: false,
+        //   disliked: false,
+        //   dislikeReason: ''
         // },
         // {
         //   id: 'ID2',
         //   content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat justo id viverra consequat. Integer feugiat lorem faucibus est ornare scelerisque. Donec tempus, nunc vitae semper sagittis, odio magna semper ipsum, et laoreet sapien mauris vitae arcu.',
         //   date: 1611653252444,
-        //   liked: true
+        //   liked: true,
+        //   disliked: false,
+        //   dislikeReason: ''
         // },
-      ]
+      ],
+      showDislikeReasonDialog: false,
+      dislikeReason: '',
+      currentQweetBeingDisliked: null
     }
   },
   methods: {
@@ -135,7 +180,9 @@ export default {
       let newQweet = {
         content: this.newQweetContent,
         date: Date.now(),
-        liked: false
+        liked: false,
+        disliked: false,
+        dislikeReason: ''
       }
       // this.qweets.unshift(newQweet)
       db.collection('qweets').add(newQweet).then(function(docRef) {
@@ -163,6 +210,46 @@ export default {
         // The document probably doesn't exist.
         console.error('Error updating document: ', error)
       })
+    },
+    toggleDisliked(qweet) {
+      if (qweet.disliked) {
+        // If already disliked, just toggle it off
+        db.collection('qweets').doc(qweet.id).update({
+          disliked: false,
+          dislikeReason: ''
+        })
+        .then(function() {
+          console.log('Dislike removed!')
+        })
+        .catch(function(error) {
+          console.error('Error updating document: ', error)
+        })
+      } else {
+        // If not disliked, show dialog to get reason
+        this.currentQweetBeingDisliked = qweet
+        this.dislikeReason = ''
+        this.showDislikeReasonDialog = true
+      }
+    },
+    submitDislike() {
+      if (this.currentQweetBeingDisliked && this.dislikeReason.trim()) {
+        db.collection('qweets').doc(this.currentQweetBeingDisliked.id).update({
+          disliked: true,
+          dislikeReason: this.dislikeReason
+        })
+        .then(function() {
+          console.log('Dislike added with reason!')
+        })
+        .catch(function(error) {
+          console.error('Error updating document: ', error)
+        })
+        this.showDislikeReasonDialog = false
+        this.resetDislikeDialog()
+      }
+    },
+    resetDislikeDialog() {
+      this.dislikeReason = ''
+      this.currentQweetBeingDisliked = null
     }
   },
   filters: {
