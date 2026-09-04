@@ -13,6 +13,31 @@ A Cross-Platrom Twitter Clone created with Quasar Framework, VueJS & Firebase
 npm install
 ```
 
+## Running Tests
+
+Currently, the test suite is not yet configured. To add testing to this project:
+
+1. **Install a test framework** (e.g., Jest):
+```bash
+npm install --save-dev jest @vue/test-utils vue-jest babel-jest
+```
+
+2. **Configure Jest** by adding a `jest.config.js` file to the root directory
+
+3. **Write tests** in the `tests/unit/` directory with `.spec.js` extensions
+
+4. **Update package.json** to use the test command:
+```json
+"test": "jest"
+```
+
+5. **Run the tests**:
+```bash
+npm test
+```
+
+For more information on testing Vue components, see the [Vue Test Utils documentation](https://vue-test-utils.vuejs.org/).
+
 ## Web Version
 
 ### Start  in development mode
