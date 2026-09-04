@@ -14,14 +14,14 @@
           >
             <template v-slot:before>
               <q-avatar size="xl">
-                <img src="https://s.gravatar.com/avatar/ce7f3697e231df38b3ca6065848520da?s=80">
+                <img :src="userProfilePicture || 'https://s.gravatar.com/avatar/ce7f3697e231df38b3ca6065848520da?s=80'">
               </q-avatar>
             </template>
           </q-input>
         </div>
         <div class="col col-shrink">
           <q-btn
-            @click="addNewQweet"
+            @click="attemptAddNewQweet"
             :disable="!newQweetContent"
             class="q-mb-lg"
             color="primary"
@@ -111,6 +111,7 @@
       </q-list>
     </q-scroll-area>
 
+    <!-- Dialog for dislike reason -->
     <q-dialog v-model="showDislikeReasonDialog" @hide="resetDislikeDialog">
       <q-card style="min-width: 300px">
         <q-card-section class="row items-center q-pb-none">
@@ -140,42 +141,85 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Dialog for missing profile picture -->
+    <q-dialog v-model="showMissingProfilePictureDialog" @hide="closeMissingProfileDialog">
+      <q-card style="min-width: 350px">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Complete Your Profile</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section>
+          <div class="text-body1 q-mb-md">
+            Before you can post Qweets, you need to add a profile picture to your account.
+          </div>
+          <div class="text-body2 text-grey-7">
+            A profile picture helps other users identify you and builds trust in our community.
+          </div>
+        </q-card-section>
+
+        <q-card-section class="flex flex-center q-py-md bg-grey-2">
+          <ProfilePictureUpload
+            :userId="currentUserId"
+            :profilePicture="userProfilePicture"
+            @picture-updated="onProfilePictureUpdated"
+          />
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Close" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script>
 import db from 'src/boot/firebase'
 import { formatDistance } from 'date-fns'
+import userService from 'src/services/userService'
+import ProfilePictureUpload from 'src/components/ProfilePictureUpload.vue'
 
 export default {
   name: 'PageHome',
+  components: {
+    ProfilePictureUpload
+  },
   data() {
     return {
       newQweetContent: '',
-      qweets: [
-        // {
-        //   id: 'ID1',
-        //   content: 'Be your own hero, its cheaper than a movie ticket.',
-        //   date: 1611653238221,
-        //   liked: false,
-        //   disliked: false,
-        //   dislikeReason: ''
-        // },
-        // {
-        //   id: 'ID2',
-        //   content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat justo id viverra consequat. Integer feugiat lorem faucibus est ornare scelerisque. Donec tempus, nunc vitae semper sagittis, odio magna semper ipsum, et laoreet sapien mauris vitae arcu.',
-        //   date: 1611653252444,
-        //   liked: true,
-        //   disliked: false,
-        //   dislikeReason: ''
-        // },
-      ],
+      qweets: [],
       showDislikeReasonDialog: false,
       dislikeReason: '',
-      currentQweetBeingDisliked: null
+      currentQweetBeingDisliked: null,
+      showMissingProfilePictureDialog: false,
+      currentUserId: userService.getCurrentUserId(),
+      userProfilePicture: null
     }
   },
   methods: {
+    /**
+     * Attempt to add a new qweet - checks for profile picture first
+     */
+    async attemptAddNewQweet() {
+      try {
+        const hasProfilePicture = await userService.hasProfilePicture(this.currentUserId)
+        if (!hasProfilePicture) {
+          this.showMissingProfilePictureDialog = true
+          return
+        }
+        this.addNewQweet()
+      } catch (error) {
+        console.error('Error checking profile picture:', error)
+        this.$q.notify({
+          type: 'negative',
+          message: 'Error validating profile',
+          position: 'top'
+        })
+      }
+    },
     addNewQweet() {
       let newQweet = {
         content: this.newQweetContent,
@@ -184,7 +228,6 @@ export default {
         disliked: false,
         dislikeReason: ''
       }
-      // this.qweets.unshift(newQweet)
       db.collection('qweets').add(newQweet).then(function(docRef) {
         console.log('Document written with ID: ', docRef.id)
       }).catch(function(error) {
@@ -250,6 +293,23 @@ export default {
     resetDislikeDialog() {
       this.dislikeReason = ''
       this.currentQweetBeingDisliked = null
+    },
+    closeMissingProfileDialog() {
+      this.showMissingProfilePictureDialog = false
+    },
+    async onProfilePictureUpdated(imageData) {
+      this.userProfilePicture = imageData
+      this.showMissingProfilePictureDialog = false
+    },
+    async loadUserProfile() {
+      try {
+        const profile = await userService.getUserProfile(this.currentUserId)
+        if (profile && profile.profilePicture) {
+          this.userProfilePicture = profile.profilePicture
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error)
+      }
     }
   },
   filters: {
@@ -257,7 +317,16 @@ export default {
       return formatDistance(value, new Date())
     }
   },
-  mounted() {
+  async mounted() {
+    // Initialize user profile and load profile picture
+    try {
+      await userService.initializeUserProfile(this.currentUserId)
+      await this.loadUserProfile()
+    } catch (error) {
+      console.error('Error initializing user profile:', error)
+    }
+
+    // Load qweets
     db.collection('qweets').orderBy('date').onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         let qweetChange = change.doc.data()
