@@ -89,12 +89,13 @@
                   round
                 />
                 <q-btn
-                  @click="deleteQweet(qweet)"
+                  @click="promptDeleteQweet(qweet)"
                   color="grey"
                   icon="fas fa-trash"
                   size="sm"
                   flat
                   round
+                  data-test="delete-btn"
                 />
               </div>
             </q-item-section>
@@ -102,6 +103,36 @@
         </transition-group>
       </q-list>
     </q-scroll-area>
+
+    <q-dialog
+      v-model="showDeleteConfirm"
+      @hide="qweetToDelete = null"
+      data-test="delete-confirm-dialog"
+    >
+      <q-card>
+        <q-card-section class="row items-center">
+          <q-icon name="warning" color="warning" size="md" class="q-mr-md" />
+          <span data-test="delete-confirm-text">Delete this Qweet?</span>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn
+            flat
+            label="Cancel"
+            color="primary"
+            v-close-popup
+            data-test="delete-cancel-btn"
+          />
+          <q-btn
+            flat
+            label="Delete"
+            color="negative"
+            @click="confirmDeleteQweet"
+            data-test="delete-confirm-btn"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -123,11 +154,13 @@ export default {
         // },
         // {
         //   id: 'ID2',
-        //   content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat justo id viverra consequat. Integer feugiat lorem faucibus est ornare scelerisque. Donec tempus, nunc vitae semper sagittis, odio magna semper ipsum, et laoreet sapien mauris vitae arcu.',
+        //   content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat justo id viverra consequat. Integer feugiat lorem faucibus est semper sagittis, odio magna semper ipsum, et laoreet sapien mauris vitae arcu.',
         //   date: 1611653252444,
         //   liked: true
         // },
-      ]
+      ],
+      showDeleteConfirm: false,
+      qweetToDelete: null
     }
   },
   methods: {
@@ -144,6 +177,18 @@ export default {
         console.error('Error adding document: ', error)
       })
       this.newQweetContent = ''
+    },
+    promptDeleteQweet(qweet) {
+      this.qweetToDelete = qweet
+      this.showDeleteConfirm = true
+    },
+    confirmDeleteQweet() {
+      if (!this.qweetToDelete) {
+        return
+      }
+      this.deleteQweet(this.qweetToDelete)
+      this.showDeleteConfirm = false
+      this.qweetToDelete = null
     },
     deleteQweet(qweet) {
       db.collection('qweets').doc(qweet.id).delete().then(function() {
